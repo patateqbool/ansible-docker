@@ -1,0 +1,2 @@
+---
+- debug: msg="42 dit le conteneur {{ inventory_hostname }}"

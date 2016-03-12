@@ -1,0 +1,54 @@
+---
+- name: Create a container
+  hosts: localhost
+  sudo: true
+  tasks:
+
+      - name: right for ssh
+        file:
+            path: "{{ ansible_env.PWD }}/container/keys/id_rsa"
+            mode: 0600
+
+      - name: provisioning image docker
+        docker_image:
+            name: container
+            path: container
+            state: present
+
+      - name: create a container
+        docker:
+            image: container
+            name: "{{ container_name }}"
+            detach: True
+            expose: "{{ ports }}"
+            ports: "{{ ports }}"
+            state: running
+
+      - name: ask the ip address of the container
+        shell: "docker exec {{ docker_containers[0].Id }} hostname -I"
+        register: _requete_container
+
+      - name: extract ip address from requete
+        set_fact:
+            _ip_container: "{{ _requete_container.stdout | regex_replace('\\s','') }}"
+      - debug:
+          msg: "Address of container is {{ _ip_container }} and before the regex {{ _requete_container.stdout }}"
+
+      - debug:
+          msg: " {{ item }}"
+        with_items: docker_containers
+
+      - name: add container to hosts inventory
+        add_host:
+            hostname: "{{ container_name }}"
+            groups: docker
+            ansible_ssh_host: "{{ _ip_container }}"
+            ansible_ssh_port: 22
+        #when: item.State.Running == True
+        with_items: docker_containers
+
+- name: Application of role
+  hosts: docker
+  remote_user: root
+  roles:
+      - "{{ role }}"
